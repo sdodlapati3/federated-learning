@@ -67,8 +67,8 @@ docs = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/fl-research/fl-research-library"
-"Bug Tracker" = "https://github.com/fl-research/fl-research-library/issues"
+"Homepage" = "https://github.com/sdodlapati3/federated-learning"
+"Bug Tracker" = "https://github.com/sdodlapati3/federated-learning/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
