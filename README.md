@@ -1,161 +1,261 @@
-# Flower Federated Learning Tutorial
+# FL Research: Federated Learning with Differential Privacy
 
-[![Flower](https://img.shields.io/badge/Flower-Framework-orange)](https://flower.ai/)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red)](https://pytorch.org/)
-[![Python](https://img.shields.io/badge/Python-3.8+-blue)](https://python.org/)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org/)
+[![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
+[![Flower 1.24+](https://img.shields.io/badge/Flower-1.24+-orange.svg)](https://flower.ai/)
+[![Opacus 1.5+](https://img.shields.io/badge/Opacus-1.5+-green.svg)](https://opacus.ai/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Learn federated learning with the [Flower](https://flower.ai/) framework using PyTorch.
+A comprehensive library and learning resource for **Federated Learning (FL)** with **Differential Privacy (DP)**. Built on top of [Flower](https://flower.ai/), [PyTorch](https://pytorch.org/), and [Opacus](https://opacus.ai/).
 
-## 📚 Tutorial Link
+## 🎯 Features
 
-**Official Tutorial**: [Get Started with Flower (PyTorch)](https://flower.ai/docs/framework/tutorial-series-get-started-with-flower-pytorch.html)
+- **Reusable FL Components**: Models, data partitioners, strategies, and privacy tools
+- **Multiple FL Strategies**: FedAvg, FedProx, SCAFFOLD with variance reduction
+- **Differential Privacy**: RDP accounting, noise mechanisms, Opacus integration
+- **Non-IID Data Simulation**: Dirichlet, pathological, and shard-based partitioning
+- **Experiment Tracking**: Metrics, checkpointing, and reproducibility utilities
 
-### Tutorial Series
-
-| Part | Topic | Link |
-|------|-------|------|
-| 1 | Get Started with Flower | [Tutorial](https://flower.ai/docs/framework/tutorial-series-get-started-with-flower-pytorch.html) |
-| 2 | Use a Federated Learning Strategy | [Tutorial](https://flower.ai/docs/framework/tutorial-series-use-a-federated-learning-strategy-pytorch.html) |
-| 3 | Build a Strategy from Scratch | [Tutorial](https://flower.ai/docs/framework/tutorial-series-build-a-strategy-from-scratch-pytorch.html) |
-| 4 | Customize the Client | [Tutorial](https://flower.ai/docs/framework/tutorial-series-customize-the-client-pytorch.html) |
-
----
-
-## 🚀 Quick Start
-
-### Option 1: Using Setup Script
+## 📦 Installation
 
 ```bash
 # Clone the repository
 git clone https://github.com/sdodlapati3/flower-federated-learning.git
 cd flower-federated-learning
 
-# Run setup script
-chmod +x setup.sh
-./setup.sh
-```
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
 
-### Option 2: Manual Setup
-
-```bash
-# 1. Create and activate virtual environment
-python -m venv flower-env
-source flower-env/bin/activate  # Linux/Mac
-# flower-env\Scripts\activate   # Windows
-
-# 2. Install dependencies
-pip install -U "flwr[simulation]" torch torchvision
-
-# 3. Create Flower project from template
-flwr new flower-tutorial --framework pytorch --username your-username
-
-# 4. Install and run
-cd flower-tutorial
+# Install the library in development mode
 pip install -e .
-flwr run .
+
+# Or install dependencies only
+pip install -r requirements.txt
 ```
 
----
+## 🚀 Quick Start
+
+### Using the Library
+
+```python
+from fl_research.models import ModelRegistry, CIFAR10CNN
+from fl_research.data import load_cifar10, DirichletPartitioner
+from fl_research.privacy import PrivacyAccountant
+from fl_research.strategies import SCAFFOLDServer, StandaloneSCAFFOLDClient
+from fl_research.utils import set_seed, get_device, MetricsTracker
+
+# Set up reproducibility
+set_seed(42)
+device = get_device()
+
+# Load data with non-IID partitioning
+train_data, test_data = load_cifar10()
+partitioner = DirichletPartitioner(num_clients=10, alpha=0.5)
+partitions = partitioner.partition(train_data)
+
+# Create model from registry
+model = ModelRegistry.create('cifar10cnn').to(device)
+
+# Track metrics
+tracker = MetricsTracker()
+tracker.log_round({'round': 1, 'accuracy': 0.85, 'loss': 0.45})
+```
+
+### Available Models
+
+```python
+from fl_research.models import ModelRegistry
+
+# List all available models
+print(ModelRegistry.list())
+# ['simplecnn', 'cifar10cnn', 'cifar10cnn_opacus', 'resnet_small', 'mlp', 'twolayer_mlp']
+
+# Create models
+cnn = ModelRegistry.create('cifar10cnn')
+dp_cnn = ModelRegistry.create('cifar10cnn_opacus')  # DP-compatible (GroupNorm)
+mlp = ModelRegistry.create('mlp', input_dim=784, hidden_dims=[256, 128], num_classes=10)
+```
+
+### Data Partitioning
+
+```python
+from fl_research.data import IIDPartitioner, DirichletPartitioner, ShardPartitioner
+
+# IID partitioning (uniform distribution)
+iid = IIDPartitioner(num_clients=10)
+
+# Non-IID with Dirichlet distribution (alpha controls heterogeneity)
+dirichlet = DirichletPartitioner(num_clients=10, alpha=0.1)  # Very heterogeneous
+dirichlet = DirichletPartitioner(num_clients=10, alpha=1.0)  # Moderate
+
+# Shard-based partitioning
+shard = ShardPartitioner(num_clients=10, shards_per_client=2)
+
+# Apply to dataset
+partitions = dirichlet.partition(train_dataset)  # Returns list of index lists
+```
+
+### Privacy Accounting
+
+```python
+from fl_research.privacy import PrivacyAccountant, get_privacy_spent
+
+# Create accountant with budget
+accountant = PrivacyAccountant(target_epsilon=10.0, target_delta=1e-5)
+
+# Track privacy consumption
+for round in range(100):
+    accountant.step(noise_multiplier=1.0, sample_rate=0.01, num_steps=10)
+    
+    if accountant.is_budget_exceeded():
+        print(f"Budget exceeded at round {round}")
+        break
+
+# Get current epsilon
+epsilon = accountant.get_epsilon()
+```
+
+### FL Strategies
+
+```python
+from fl_research.strategies import SCAFFOLDServer, StandaloneSCAFFOLDClient
+
+# SCAFFOLD for variance reduction
+server = SCAFFOLDServer(model, device)
+client = StandaloneSCAFFOLDClient(client_id=0, dataloader=loader, device=device)
+client.initialize_control_variate(model)
+
+# Train with gradient correction
+delta_w, delta_c, count = client.train(model, server.global_control, epochs=5, lr=0.1)
+server.aggregate([delta_w], [delta_c], [count], total_clients=10)
+```
 
 ## 📁 Project Structure
 
-After running `flwr new`, you'll have:
-
 ```
-flower-tutorial/
-├── flower_tutorial/
-│   ├── __init__.py
-│   ├── client_app.py   # Client-side federated logic
-│   ├── server_app.py   # Server-side aggregation logic
-│   └── task.py         # Model, training, data loading
-├── pyproject.toml      # Project config and dependencies
-└── README.md
+flower-federated-learning/
+├── src/fl_research/           # Main library
+│   ├── models/                # CNN, MLP, ResNet models
+│   │   ├── cnn.py            # SimpleCNN, CIFAR10CNN, CIFAR10CNNOpacus
+│   │   ├── mlp.py            # MLP, TwoLayerMLP
+│   │   └── registry.py       # ModelRegistry factory
+│   ├── data/                  # Data loading and partitioning
+│   │   ├── loaders.py        # CIFAR-10, MNIST, Fashion-MNIST
+│   │   └── partitioners.py   # IID, Dirichlet, Shard partitioners
+│   ├── privacy/               # Differential privacy
+│   │   ├── accountant.py     # RDP-based privacy accounting
+│   │   ├── mechanisms.py     # Gaussian, Laplace noise
+│   │   └── opacus_utils.py   # Opacus integration helpers
+│   ├── strategies/            # FL algorithms
+│   │   ├── fedavg.py         # Federated Averaging
+│   │   ├── fedprox.py        # FedProx with proximal term
+│   │   └── scaffold.py       # SCAFFOLD with control variates
+│   └── utils/                 # Utilities
+│       ├── config.py         # YAML/JSON configuration
+│       ├── metrics.py        # MetricsTracker
+│       ├── checkpointing.py  # Model checkpoints
+│       └── reproducibility.py # Seeds, device detection
+├── tests/                     # Test suite (61 tests)
+├── dp-experiments/            # DP experiment scripts
+├── week5-6-scaling/           # Advanced FL experiments
+│   └── experiments/
+│       ├── scaffold/          # SCAFFOLD vs FedAvg
+│       └── fedprox/           # FedProx experiments
+└── flower-tutorial/           # Basic Flower tutorial
 ```
 
----
+## 📊 Experiments
 
-## 🎯 What You'll Learn
-
-1. **Federated Learning Basics**
-   - Split data across multiple clients
-   - Train local models on each client
-   - Aggregate models on a central server
-
-2. **Flower Framework Components**
-   - `ClientApp`: Local training and evaluation
-   - `ServerApp`: Coordination and aggregation
-   - `FedAvg`: Federated averaging strategy
-
-3. **Key Concepts**
-   - `ArrayRecord`: Model parameters
-   - `MetricRecord`: Training/eval metrics
-   - `ConfigRecord`: Configuration settings
-   - `Message`: Client-server communication
-
----
-
-## 🔧 Running Experiments
+### Differential Privacy Experiments
 
 ```bash
-# Activate environment
-source flower-env/bin/activate
-cd flower-tutorial
-
-# Basic run (3 rounds, 10 clients)
-flwr run .
-
-# Custom configuration
-flwr run . --run-config "num-server-rounds=5 local-epochs=3"
-
-# More rounds with higher participation
-flwr run . --run-config "num-server-rounds=10 fraction-train=0.8"
+cd dp-experiments
+python run_standalone_experiments_refactored.py
 ```
 
----
+Compares IID vs Non-IID data with varying privacy levels (ε = 2, 4, 8).
 
-## 📊 Expected Output
+### SCAFFOLD vs FedAvg
 
-```
-INFO :      Starting FedAvg strategy:
-INFO :          ├── Number of rounds: 3
-INFO :          ├── ArrayRecord (0.24 MB)
-...
-INFO :      [ROUND 1/3]
-INFO :      configure_train: Sampled 5 nodes (out of 10)
-INFO :      aggregate_train: Received 5 results and 0 failures
-INFO :          └──> Aggregated MetricRecord: {'train_loss': 2.25811}
-INFO :      configure_evaluate: Sampled 10 nodes (out of 10)
-INFO :          └──> Aggregated MetricRecord: {'eval_loss': 2.30, 'eval_acc': 0.10}
-...
-INFO :      [ROUND 3/3]
-...
-INFO :      Strategy execution finished in 17.18s
-
-Saving final model to disk...
+```bash
+cd week5-6-scaling/experiments/scaffold
+python scaffold_implementation_refactored.py
 ```
 
----
+Demonstrates variance reduction with control variates on heterogeneous data.
 
-## 📖 Documentation
+### FedProx Comparison
 
-- [PLAN.md](PLAN.md) - Detailed implementation plan
-- [Flower Docs](https://flower.ai/docs/framework/)
-- [Flower GitHub](https://github.com/adap/flower)
-- [Flower Discuss](https://discuss.flower.ai/)
-- [Flower Slack](https://flower.ai/join-slack)
+```bash
+cd week5-6-scaling/experiments/fedprox
+python fedprox_implementation_refactored.py
+```
 
----
+Shows proximal term benefits for client drift mitigation.
 
-## 🛠️ Requirements
+## 🧪 Testing
 
-- Python 3.8+
-- PyTorch 2.0+
-- Flower 1.24+
+```bash
+# Run all tests
+pytest tests/ -v
 
-See [requirements.txt](requirements.txt) for full dependencies.
+# Run with coverage
+pytest tests/ --cov=fl_research --cov-report=html
+```
 
----
+## 📚 Learning Path
+
+This repository follows a structured learning journey:
+
+| Week | Topic | Key Concepts |
+|------|-------|--------------|
+| 1-2 | Flower Basics | Client/Server, FedAvg, Simulation |
+| 3 | Differential Privacy | ε-δ DP, RDP, Opacus integration |
+| 4 | DP + FL | Privacy-utility tradeoffs, composition |
+| 5-6 | Advanced Strategies | FedProx, SCAFFOLD, Non-IID handling |
+
+## 🔧 Configuration
+
+```python
+from fl_research.utils import Config, save_config, load_config
+
+# Create experiment config
+config = Config(
+    num_rounds=100,
+    num_clients=10,
+    batch_size=32,
+    learning_rate=0.01,
+    strategy='scaffold',
+    privacy={'epsilon': 10.0, 'delta': 1e-5}
+)
+
+# Save and load
+save_config(config, 'experiment.yaml')
+loaded = load_config('experiment.yaml')
+```
+
+## 📖 References
+
+### Papers
+- [FedAvg](https://arxiv.org/abs/1602.05629) - Communication-Efficient Learning
+- [FedProx](https://arxiv.org/abs/1812.06127) - Heterogeneous Federated Optimization
+- [SCAFFOLD](https://arxiv.org/abs/1910.06378) - Stochastic Controlled Averaging
+- [DP-SGD](https://arxiv.org/abs/1607.00133) - Deep Learning with Differential Privacy
+
+### Documentation
+- [Flower Framework](https://flower.ai/docs/framework/)
+- [Opacus Library](https://opacus.ai/)
+- [PyTorch](https://pytorch.org/docs/)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit issues and pull requests.
 
 ## 📝 License
 
 MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+**Built with ❤️ for the Federated Learning research community**
