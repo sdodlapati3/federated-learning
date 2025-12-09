@@ -1,5 +1,6 @@
 # FL Research: Federated Learning with Differential Privacy
 
+[![CI](https://github.com/sdodlapati3/federated-learning/actions/workflows/ci.yml/badge.svg)](https://github.com/sdodlapati3/federated-learning/actions/workflows/ci.yml)
 [![Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org/)
 [![PyTorch 2.0+](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![Flower 1.24+](https://img.shields.io/badge/Flower-1.24+-orange.svg)](https://flower.ai/)
@@ -15,6 +16,8 @@ A comprehensive library and learning resource for **Federated Learning (FL)** wi
 - **Differential Privacy**: RDP accounting, noise mechanisms, Opacus integration
 - **Non-IID Data Simulation**: Dirichlet, pathological, and shard-based partitioning
 - **Experiment Tracking**: Metrics, checkpointing, and reproducibility utilities
+- **Comprehensive Documentation**: Learning guides, algorithm notes, framework comparisons
+- **105 Unit Tests**: Extensive test coverage with CI/CD pipeline
 
 ## 📦 Installation
 
@@ -156,14 +159,27 @@ flower-federated-learning/
 │       ├── metrics.py        # MetricsTracker
 │       ├── checkpointing.py  # Model checkpoints
 │       └── reproducibility.py # Seeds, device detection
-├── tests/                     # Test suite (61 tests)
+├── tests/                     # Test suite (105 tests)
+│   ├── test_data.py          # Data loading tests
+│   ├── test_models.py        # Model registry tests
+│   ├── test_privacy.py       # Privacy accounting tests
+│   ├── test_utils.py         # Utility tests
+│   ├── test_strategies.py    # FedAvg, FedProx, SCAFFOLD tests
+│   └── test_integration.py   # End-to-end workflow tests
 ├── examples/                  # Example experiments
 │   ├── dp/                   # Differential privacy experiments
 │   ├── scaffold/             # SCAFFOLD vs FedAvg comparison
 │   ├── fedprox/              # FedProx experiments
-│   ├── flower-basics/        # Basic Flower tutorial
-│   ├── quickstarts/          # Framework quickstarts (JAX, TF, etc.)
-│   └── advanced/             # Advanced FL examples
+│   ├── minimal_example.py    # Quick runnable demo
+│   └── ...                   # Additional examples
+├── docs/                      # 📚 Documentation
+│   ├── FEDERATED_LEARNING_GUIDE.md  # Comprehensive FL learning guide
+│   ├── DP_VARIANTS_NOTES.md         # DP variants explained
+│   ├── DISTRIBUTED_OPTIMIZATION_NOTES.md  # Optimization theory
+│   ├── HPC_SCALING_REPORT.md        # HPC scaling patterns
+│   ├── FEDML_COMPARISON.md          # Framework comparison
+│   └── COMPLETION_REPORT.md         # Project summary
+├── .github/workflows/ci.yml   # CI/CD pipeline
 ├── README.md
 ├── pyproject.toml
 └── requirements.txt
@@ -201,11 +217,15 @@ Shows proximal term benefits for client drift mitigation.
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# Run all tests (105 tests)
 pytest tests/ -v
 
 # Run with coverage
 pytest tests/ --cov=fl_research --cov-report=html
+
+# Run specific test files
+pytest tests/test_strategies.py -v  # Strategy tests
+pytest tests/test_integration.py -v  # End-to-end tests
 ```
 
 ## 📚 Learning Path
@@ -239,6 +259,18 @@ save_config(config, 'experiment.yaml')
 loaded = load_config('experiment.yaml')
 ```
 
+## 📚 Documentation
+
+See the [`docs/`](docs/) folder for comprehensive learning resources:
+
+| Document | Description |
+|----------|-------------|
+| [FEDERATED_LEARNING_GUIDE.md](docs/FEDERATED_LEARNING_GUIDE.md) | 📖 Complete FL+DP learning guide with citations |
+| [DP_VARIANTS_NOTES.md](docs/DP_VARIANTS_NOTES.md) | Approximate, Rényi, Local DP explained |
+| [DISTRIBUTED_OPTIMIZATION_NOTES.md](docs/DISTRIBUTED_OPTIMIZATION_NOTES.md) | Optimization theory for FL |
+| [HPC_SCALING_REPORT.md](docs/HPC_SCALING_REPORT.md) | HPC scaling patterns |
+| [FEDML_COMPARISON.md](docs/FEDML_COMPARISON.md) | Framework comparison guide |
+
 ## 📖 References
 
 ### Papers
@@ -246,6 +278,7 @@ loaded = load_config('experiment.yaml')
 - [FedProx](https://arxiv.org/abs/1812.06127) - Heterogeneous Federated Optimization
 - [SCAFFOLD](https://arxiv.org/abs/1910.06378) - Stochastic Controlled Averaging
 - [DP-SGD](https://arxiv.org/abs/1607.00133) - Deep Learning with Differential Privacy
+- [Awesome Federated Learning](https://github.com/FedML-AI/FedML/blob/master/research/Awesome-Federated-Learning.md) - 500+ papers
 
 ### Documentation
 - [Flower Framework](https://flower.ai/docs/framework/)
