@@ -39,6 +39,11 @@ env/
 *.log
 logs/
 
+# SLURM output files
+*.out
+*.err
+slurm-*.out
+
 # Model checkpoints
 *.pt
 *.pth
@@ -47,7 +52,13 @@ checkpoints/
 
 # Data
 data/
+*/data/
+**/data/
 *.csv
+
+# Downloaded datasets
+cifar-10-batches-py/
+cifar-10-python.tar.gz
 *.json
 
 # OS
@@ -56,3 +67,4 @@ Thumbs.db
 
 # Flower
 .flwr/
+.env
