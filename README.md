@@ -20,8 +20,8 @@ A comprehensive library and learning resource for **Federated Learning (FL)** wi
 
 ```bash
 # Clone the repository
-git clone https://github.com/sdodlapati3/flower-federated-learning.git
-cd flower-federated-learning
+git clone https://github.com/sdodlapati3/federated-learning.git
+cd federated-learning
 
 # Create virtual environment
 python -m venv venv
