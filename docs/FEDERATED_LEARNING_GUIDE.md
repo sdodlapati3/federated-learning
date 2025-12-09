@@ -745,13 +745,25 @@ set_seed(42)
 17. Beutel, D. J., et al. (2020). *Flower: A Friendly Federated Learning Framework*. [[Flower]](https://arxiv.org/abs/2007.14390)
 18. He, C., et al. (2020). *FedML: A Research Library and Benchmark*. [[FedML]](https://arxiv.org/abs/2007.13518)
 
+### Curated Paper Collections (Highly Recommended!)
+
+19. **FedML Awesome-Federated-Learning** - *The most comprehensive list* (500+ papers organized by research area):
+    - https://github.com/FedML-AI/FedML/blob/master/research/Awesome-Federated-Learning.md
+    - Topics: Distributed Optimization, Non-IID, Privacy, Attacks, Communication Efficiency
+    - Papers from ICML, NeurIPS, ICLR, CVPR with researcher affiliations
+    - Regularly updated with new publications
+
+20. **Awesome Federated Learning**: https://github.com/weimingwill/awesome-federated-learning
+21. **Awesome FL on Graphs**: https://github.com/huweibo/Awesome-Federated-Learning-on-Graph-and-Tabular-Data
+
 ### Online Resources
 
 - **Flower Documentation**: https://flower.ai/docs/
 - **Opacus Documentation**: https://opacus.ai/
-- **FedML Documentation**: https://doc.fedml.ai/
+- **FedML Documentation**: https://doc.fedml.ai/ (Note: Now part of TensorOpera AI platform)
 - **Programming DP Book**: https://programming-dp.com/
 - **Google FL Comics**: https://federated.withgoogle.com/
+- **FL Field Guide**: https://arxiv.org/abs/2107.06917 (Optimization-focused)
 
 ---
 
