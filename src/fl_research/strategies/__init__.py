@@ -22,6 +22,8 @@ from fl_research.strategies.fedprox import (
 from fl_research.strategies.scaffold import (
     SCAFFOLDStrategy,
     SCAFFOLDClient,
+    SCAFFOLDServer,
+    StandaloneSCAFFOLDClient,
 )
 from fl_research.strategies.base import (
     StrategyConfig,
@@ -38,6 +40,8 @@ __all__ = [
     # SCAFFOLD
     "SCAFFOLDStrategy",
     "SCAFFOLDClient",
+    "SCAFFOLDServer",
+    "StandaloneSCAFFOLDClient",
     # Base
     "StrategyConfig",
     "create_strategy",

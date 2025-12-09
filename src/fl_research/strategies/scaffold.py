@@ -30,6 +30,261 @@ except ImportError:
 from fl_research.strategies.fedavg import FedAvgStrategy, weighted_average
 
 
+class SCAFFOLDServer:
+    """
+    Standalone SCAFFOLD server for non-Flower experiments.
+    
+    Maintains global model and control variates, handles aggregation.
+    
+    Example:
+        >>> model = CIFAR10CNN()
+        >>> server = SCAFFOLDServer(model, device)
+        >>> server.aggregate(delta_weights, delta_controls, counts, total_clients)
+    """
+    
+    def __init__(self, model: nn.Module, device: torch.device):
+        """
+        Initialize SCAFFOLD server.
+        
+        Args:
+            model: Global model
+            device: Device to use for computation
+        """
+        self.device = device
+        self.model = model.to(device)
+        
+        # Global control variate c - average of client controls
+        self.global_control = [
+            torch.zeros_like(p, device=device) 
+            for p in model.parameters()
+        ]
+    
+    def get_weights(self) -> List[torch.Tensor]:
+        """Get current global model weights."""
+        return [p.data.clone() for p in self.model.parameters()]
+    
+    def set_weights(self, weights: List[torch.Tensor]) -> None:
+        """Set global model weights."""
+        with torch.no_grad():
+            for p, w in zip(self.model.parameters(), weights):
+                p.data.copy_(w)
+    
+    def aggregate(
+        self,
+        delta_weights_list: List[List[torch.Tensor]],
+        delta_controls_list: List[List[torch.Tensor]],
+        sample_counts: List[int],
+        total_clients: int
+    ) -> None:
+        """
+        Aggregate client updates using SCAFFOLD algorithm.
+        
+        Server update:
+        x = x + Δx  where Δx = weighted average of (y_k - x)
+        c = c + Δc  where Δc = (|S|/N) * average of (c_k+ - c_k)
+        
+        Args:
+            delta_weights_list: List of weight deltas from each client
+            delta_controls_list: List of control deltas from each client
+            sample_counts: Number of samples per client
+            total_clients: Total number of clients in federation
+        """
+        num_participating = len(delta_weights_list)
+        total_samples = sum(sample_counts)
+        
+        # Update global model: x = x + weighted_avg(delta_weights)
+        with torch.no_grad():
+            for layer_idx, param in enumerate(self.model.parameters()):
+                weighted_delta = torch.zeros_like(param)
+                
+                for deltas, count in zip(delta_weights_list, sample_counts):
+                    weight = count / total_samples
+                    weighted_delta += weight * deltas[layer_idx].to(self.device)
+                
+                param.data.add_(weighted_delta)
+        
+        # Update global control: c = c + (|S|/N) * avg(delta_controls)
+        scaling = num_participating / total_clients
+        
+        for layer_idx in range(len(self.global_control)):
+            avg_delta_control = torch.zeros_like(self.global_control[layer_idx])
+            
+            for delta_controls in delta_controls_list:
+                avg_delta_control += delta_controls[layer_idx].to(self.device) / num_participating
+            
+            self.global_control[layer_idx].add_(scaling * avg_delta_control)
+    
+    def evaluate(self, testloader) -> Tuple[float, float]:
+        """
+        Evaluate global model on test data.
+        
+        Args:
+            testloader: DataLoader for test data
+            
+        Returns:
+            Tuple of (accuracy, loss)
+        """
+        self.model.eval()
+        correct = 0
+        total = 0
+        total_loss = 0.0
+        criterion = nn.CrossEntropyLoss()
+        
+        with torch.no_grad():
+            for images, labels in testloader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                
+                outputs = self.model(images)
+                loss = criterion(outputs, labels)
+                
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+                total_loss += loss.item() * labels.size(0)
+        
+        accuracy = correct / total if total > 0 else 0.0
+        avg_loss = total_loss / total if total > 0 else 0.0
+        
+        return accuracy, avg_loss
+
+
+class StandaloneSCAFFOLDClient:
+    """
+    Standalone SCAFFOLD client for non-Flower experiments.
+    
+    Maintains local control variate and trains with gradient correction.
+    
+    Example:
+        >>> client = StandaloneSCAFFOLDClient(client_id=0, dataloader=loader, device=device)
+        >>> client.initialize_control_variate(model)
+        >>> delta_w, delta_c, count = client.train(model, global_control, epochs, lr)
+    """
+    
+    def __init__(
+        self,
+        client_id: int,
+        dataloader: torch.utils.data.DataLoader,
+        device: torch.device
+    ):
+        """
+        Initialize SCAFFOLD client.
+        
+        Args:
+            client_id: Unique client identifier
+            dataloader: DataLoader for local training data
+            device: Device for computation
+        """
+        self.client_id = client_id
+        self.dataloader = dataloader
+        self.device = device
+        
+        # Control variate c_k - initialized to zero
+        self.control_variate: Optional[List[torch.Tensor]] = None
+    
+    def initialize_control_variate(self, model: nn.Module) -> None:
+        """Initialize control variate to zeros matching model shape."""
+        self.control_variate = [
+            torch.zeros_like(p, device=self.device) 
+            for p in model.parameters()
+        ]
+    
+    def train(
+        self,
+        model: nn.Module,
+        global_control: List[torch.Tensor],
+        epochs: int,
+        lr: float
+    ) -> Tuple[List[torch.Tensor], List[torch.Tensor], int]:
+        """
+        Train using SCAFFOLD algorithm with gradient correction.
+        
+        Args:
+            model: Model with current global weights
+            global_control: Global control variate c
+            epochs: Local epochs
+            lr: Learning rate
+            
+        Returns:
+            delta_weights: Change in weights (y - x)
+            delta_control: Change in control variate (c_k+ - c_k)
+            num_samples: Number of samples
+        """
+        if self.control_variate is None:
+            self.initialize_control_variate(model)
+        
+        model.to(self.device)
+        model.train()
+        criterion = nn.CrossEntropyLoss()
+        
+        # Store initial weights
+        initial_weights = [p.data.clone() for p in model.parameters()]
+        
+        # Training with corrected gradients
+        num_batches = 0
+        
+        for epoch in range(epochs):
+            for images, labels in self.dataloader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                
+                # Zero gradients
+                model.zero_grad()
+                
+                # Forward pass
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                
+                # Backward pass
+                loss.backward()
+                
+                # SCAFFOLD gradient correction:
+                # y_k = ∇f_k(x) - c_k + c
+                for param, c_k, c in zip(
+                    model.parameters(), 
+                    self.control_variate,
+                    global_control
+                ):
+                    if param.grad is not None:
+                        # Corrected gradient: grad - c_k + c
+                        param.grad.data = param.grad.data - c_k.to(self.device) + c.to(self.device)
+                
+                # Update with corrected gradient
+                with torch.no_grad():
+                    for param in model.parameters():
+                        if param.grad is not None:
+                            param.data -= lr * param.grad.data
+                
+                num_batches += 1
+        
+        # Compute delta weights: y - x
+        delta_weights = [
+            p.data - init_w 
+            for p, init_w in zip(model.parameters(), initial_weights)
+        ]
+        
+        # Update control variate using Option I from paper:
+        # c_k+ = c_k - c + (x - y) / (K * η)
+        # where K = total gradient steps, η = learning rate
+        total_steps = epochs * len(self.dataloader)
+        
+        new_control = []
+        for c_k, c, delta in zip(self.control_variate, global_control, delta_weights):
+            c_new = c_k - c.to(self.device) - delta / (total_steps * lr)
+            new_control.append(c_new)
+        
+        # Delta control: c_k+ - c_k
+        delta_control = [
+            c_new - c_k 
+            for c_new, c_k in zip(new_control, self.control_variate)
+        ]
+        
+        # Update stored control variate
+        self.control_variate = new_control
+        
+        return delta_weights, delta_control, len(self.dataloader.dataset)
+
+
 class SCAFFOLDStrategy(FedAvgStrategy):
     """
     SCAFFOLD Strategy for variance reduction in FL.
